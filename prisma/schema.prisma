@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  number          String        @unique
+  date            DateTime
+  dueDate         DateTime?
+  customerName    String
+  customerEmail   String?
+  customerPhone   String?
+  customerAddress String?
+  status          InvoiceStatus @default(DRAFT)
+  subtotal        Decimal       @default("0")
+  totalTax        Decimal       @default("0")
+  total           Decimal       @default("0")
+  items           InvoiceItem[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoice     Invoice @relation(fields: [invoiceId], references: [id])
+  invoiceId   String
+  description String
+  quantity    Float   @default(1)
+  unitPrice   Decimal @default("0")
+  taxPercent  Float   @default(0)
+  taxAmount   Decimal @default("0")
+  lineTotal   Decimal @default("0")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+}
