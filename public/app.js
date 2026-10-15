@@ -2,7 +2,7 @@ const $ = (sel, el = document) => el.querySelector(sel);
 const app = $("#app");
 
 const esc = (s) =>
-  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  String(s ?? "").replace(/[&<>\"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const money = (n) =>
   "₹" + Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const today = () => new Date().toISOString().slice(0, 10);
@@ -34,7 +34,7 @@ function toast(msg, isError = false) {
 }
 
 const micIcon = (size = 26) =>
-  `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>`;
+  `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></svg>`;
 
 /* ---------------- Home / list ---------------- */
 
@@ -96,14 +96,28 @@ async function renderHome() {
 let draft = null;
 
 const blankDraft = (kind) => ({
-  kind, number: "", issueDate: today(), customerName: "", customerPhone: "", customerAddress: "",
-  items: [{ description: "", quantity: 1, unit: "pcs", rate: 0 }], taxRate: kind === "invoice" ? 0 : 0, notes: "",
+  kind,
+  number: "",
+  issueDate: today(),
+  customerName: "",
+  customerPhone: "",
+  customerAddress: "",
+  items: [{ description: "", quantity: 1, unit: "pcs", rate: 0 }],
+  taxRate: 0,
+  discount: 0,
+  freight: 0,
+  other: 0,
+  notes: "",
 });
 
 function computeTotals(d) {
   const subtotal = d.items.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.rate) || 0), 0);
-  const tax = d.kind === "invoice" ? subtotal * (Number(d.taxRate) || 0) / 100 : 0;
-  return { subtotal, tax, total: subtotal + tax };
+  const discount = Number(d.discount) || 0;
+  const freight = Number(d.freight) || 0;
+  const other = Number(d.other) || 0;
+  const taxableBase = Math.max(0, subtotal - discount + freight + other);
+  const tax = d.kind === "invoice" ? taxableBase * (Number(d.taxRate) || 0) / 100 : 0;
+  return { subtotal, discount, freight, other, taxableBase, tax, total: taxableBase + tax };
 }
 
 async function renderEditor({ kind, id }) {
@@ -111,7 +125,13 @@ async function renderEditor({ kind, id }) {
     app.innerHTML = `<p class="sub">Loading…</p>`;
     try {
       const doc = await api(`/api/documents/${id}`);
-      draft = { ...doc, taxRate: Number(doc.taxRate) };
+      draft = {
+        ...doc,
+        taxRate: Number(doc.taxRate) || 0,
+        discount: Number(doc.discount) || 0,
+        freight: Number(doc.freight) || 0,
+        other: Number(doc.other) || 0,
+      };
     } catch (e) {
       app.innerHTML = `<div class="empty">${esc(e.message)}</div>`;
       return;
@@ -143,6 +163,13 @@ async function renderEditor({ kind, id }) {
         <h2>Items</h2>
         <div id="items"></div>
         <button type="button" class="btn small" id="add-item" style="margin-top:10px">+ Add item</button>
+
+        <div class="row2" style="margin-top:14px">
+          <label class="field"><span>Discount ₹</span><input name="discount" type="number" inputmode="decimal" min="0" step="any" /></label>
+          <label class="field"><span>Freight ₹</span><input name="freight" type="number" inputmode="decimal" min="0" step="any" /></label>
+          <label class="field"><span>Other ₹</span><input name="other" type="number" inputmode="decimal" min="0" step="any" /></label>
+        </div>
+
         <div class="row2" style="margin-top:14px">
           <label class="field" id="tax-field"><span>GST / Tax %</span><input name="taxRate" type="number" inputmode="decimal" min="0" max="100" step="0.01" /></label>
         </div>
@@ -160,7 +187,7 @@ async function renderEditor({ kind, id }) {
 
   const form = $("#doc-form");
   const fill = () => {
-    for (const k of ["customerName", "customerPhone", "issueDate", "customerAddress", "taxRate", "notes"]) {
+    for (const k of ["customerName", "customerPhone", "issueDate", "customerAddress", "taxRate", "discount", "freight", "other", "notes"]) {
       form.elements[k].value = draft[k] ?? "";
     }
     app.querySelectorAll(".kind-toggle button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.kind === draft.kind));
@@ -175,9 +202,12 @@ async function renderEditor({ kind, id }) {
     $("#totals").innerHTML =
       draft.kind === "invoice"
         ? `<div><span>Subtotal</span><span>${money(t.subtotal)}</span></div>
+           <div><span>Discount</span><span>- ${money(t.discount)}</span></div>
+           <div><span>Freight</span><span>${money(t.freight)}</span></div>
+           <div><span>Other</span><span>${money(t.other)}</span></div>
            <div><span>Tax (${Number(draft.taxRate) || 0}%)</span><span>${money(t.tax)}</span></div>
            <div class="grand"><span>Total</span><span>${money(t.total)}</span></div>`
-        : `<div class="grand"><span>Goods value</span><span>${money(t.total)}</span></div>`;
+        : `<div><span>Goods value</span><span>${money(t.total)}</span></div>`;
   };
 
   const drawItems = () => {
@@ -218,7 +248,7 @@ async function renderEditor({ kind, id }) {
   form.addEventListener("input", (e) => {
     if (e.target.name) {
       draft[e.target.name] = e.target.value;
-      if (e.target.name === "taxRate") drawTotals();
+      if (["taxRate", "discount", "freight", "other"].includes(e.target.name)) drawTotals();
     }
   });
   app.querySelectorAll(".kind-toggle button").forEach((b) => (b.onclick = () => { draft.kind = b.dataset.kind; fill(); }));
@@ -236,7 +266,14 @@ async function renderEditor({ kind, id }) {
     const btn = $("#save-btn");
     btn.disabled = true;
     try {
-      const body = { ...draft, items };
+      const body = {
+        ...draft,
+        items,
+        discount: Number(draft.discount) || 0,
+        freight: Number(draft.freight) || 0,
+        other: Number(draft.other) || 0,
+        taxRate: Number(draft.taxRate) || 0,
+      };
       const saved = id ? await api(`/api/documents/${id}`, { method: "PUT", body }) : await api("/api/documents", { method: "POST", body });
       toast(`${saved.number} saved`);
       location.hash = `#/view/${saved.id}`;
@@ -258,6 +295,9 @@ function applyVoice(r) {
   if (r.kind) draft.kind = r.kind;
   for (const k of ["customerName", "customerPhone", "customerAddress", "notes"]) if (r[k]) draft[k] = r[k];
   if (typeof r.taxRate === "number") draft.taxRate = r.taxRate;
+  if (typeof r.discount === "number") draft.discount = r.discount;
+  if (typeof r.freight === "number") draft.freight = r.freight;
+  if (typeof r.other === "number") draft.other = r.other;
   if (Array.isArray(r.items) && r.items.length) {
     draft.items = r.items.map((i) => ({ ...i, unit: i.unit || "pcs" }));
   }
@@ -387,7 +427,13 @@ async function renderView(id) {
     app.innerHTML = `<div class="empty">${esc(e.message)}</div>`;
     return;
   }
-  const t = computeTotals({ ...doc, taxRate: Number(doc.taxRate) });
+  const t = computeTotals({
+    ...doc,
+    taxRate: Number(doc.taxRate) || 0,
+    discount: Number(doc.discount) || 0,
+    freight: Number(doc.freight) || 0,
+    other: Number(doc.other) || 0,
+  });
   const isInv = doc.kind === "invoice";
   app.innerHTML = `
     <div class="actions">
@@ -418,11 +464,17 @@ async function renderView(id) {
       <table>
         <thead><tr><th>#</th><th>Item</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead>
         <tbody>
-          ${doc.items.map((i, n) => `<tr><td>${n + 1}</td><td>${esc(i.description)}</td><td class="num">${esc(i.quantity)} ${esc(i.unit)}</td><td class="num">${money(i.rate)}</td><td class="num">${money(i.quantity * i.rate)}</td></tr>`).join("")}
+          ${doc.items.map((i, n) => `<tr><td>${n + 1}</td><td>${esc(i.description)}</td><td class="num">${esc(i.quantity)} ${esc(i.unit)}</td><td class="num">${money(i.rate)}</td><td class="num">${money((Number(i.quantity) || 0) * (Number(i.rate) || 0))}</td></tr>`).join("")}
         </tbody>
       </table>
       <div class="totals">
-        ${isInv ? `<div><span>Subtotal</span><span>${money(t.subtotal)}</span></div><div><span>Tax (${Number(doc.taxRate)}%)</span><span>${money(t.tax)}</span></div>` : ""}
+        ${isInv ? `
+          <div><span>Subtotal</span><span>${money(t.subtotal)}</span></div>
+          <div><span>Discount</span><span>- ${money(t.discount)}</span></div>
+          <div><span>Freight</span><span>${money(t.freight)}</span></div>
+          <div><span>Other</span><span>${money(t.other)}</span></div>
+          <div><span>Tax (${Number(doc.taxRate) || 0}%)</span><span>${money(t.tax)}</span></div>
+        ` : ""}
         <div class="grand"><span>${isInv ? "Total" : "Goods value"}</span><span>${money(doc.total)}</span></div>
       </div>
       ${doc.notes ? `<div class="doc-notes"><b>Notes:</b> ${esc(doc.notes)}</div>` : ""}
@@ -431,7 +483,7 @@ async function renderView(id) {
 
   $("#print").onclick = () => window.print();
   $("#share").onclick = async () => {
-    const text = `${label(doc.kind)} ${doc.number}\n${biz.name ? "From: " + biz.name + "\n" : ""}To: ${doc.customerName}\nDate: ${fmtDate(doc.issueDate)}\n\n${doc.items.map((i) => `• ${i.description} — ${i.quantity} ${i.unit} × ${money(i.rate)}`).join("\n")}\n\n${isInv ? "Total" : "Goods value"}: ${money(doc.total)}`;
+    const text = `${label(doc.kind)} ${doc.number}\n${biz.name ? "From: " + biz.name + "\n" : ""}To: ${doc.customerName}\nDate: ${fmtDate(doc.issueDate)}\n\n${doc.items.map((i) => `• ${i.description} — ${i.quantity} ${i.unit} @ ${money(i.rate)}`).join("\n")}\n\nTotal: ${money(doc.total)}`;
     if (navigator.share) {
       navigator.share({ title: `${label(doc.kind)} ${doc.number}`, text }).catch(() => {});
     } else {
