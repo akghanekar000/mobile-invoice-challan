@@ -1,0 +1,9 @@
+{
+  "name": "Bahi — Invoices & Challans",
+  "short_name": "Bahi",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f1e7",
+  "theme_color": "#1d2a3a",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
