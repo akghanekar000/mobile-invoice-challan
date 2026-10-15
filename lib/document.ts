@@ -26,8 +26,12 @@ export function cleanDocument(body: any) {
   const kind: Kind = KINDS.includes(body?.kind) ? body.kind : "invoice";
   const items = cleanItems(body?.items);
   const taxRate = Math.min(100, Math.max(0, num(body?.taxRate)));
+  const discount = Math.max(0, num(body?.discount));
+  const freight = Math.max(0, num(body?.freight));
+  const other = Math.max(0, num(body?.other));
   const subtotal = items.reduce((s, i) => s + i.quantity * i.rate, 0);
-  const total = kind === "invoice" ? subtotal * (1 + taxRate / 100) : subtotal;
+  const taxableBase = Math.max(0, subtotal - discount + freight + other);
+  const total = kind === "invoice" ? taxableBase * (1 + taxRate / 100) : taxableBase;
   const issueDate = /^\d{4}-\d{2}-\d{2}$/.test(body?.issueDate)
     ? body.issueDate
     : new Date().toISOString().slice(0, 10);
@@ -40,6 +44,9 @@ export function cleanDocument(body: any) {
     customerAddress: str(body?.customerAddress, 500),
     items,
     taxRate: taxRate.toFixed(2),
+    discount: discount.toFixed(2),
+    freight: freight.toFixed(2),
+    other: other.toFixed(2),
     notes: str(body?.notes, 2000),
     total: total.toFixed(2),
   };
