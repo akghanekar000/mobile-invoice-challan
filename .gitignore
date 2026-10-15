@@ -147,3 +147,9 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Local Netlify folder
+.netlify
+
+# Netlify
+.netlify

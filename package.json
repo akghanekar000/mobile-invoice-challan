@@ -1,0 +1,31 @@
+{
+  "name": "repo",
+  "version": "1.0.0",
+  "description": "Mobile-first PWA for creating invoices and challans (MVP) — Next.js + Tailwind + Prisma + PDFKit",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://x-access-token:ghs_13473_eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhdXRobmQiLCJjdHgiOiJFdHRkanV6a24tRUZMMFdwS0R6VUdCOEIzMXZvTlVmTFRzcFFoeENfcnVIZU5XS1pxTm5DQWZVa2tBIiwiZXhwIjoxNzkyMDc2NDI0LCJpYXQiOjE3OTIwNzI4MjQsImlzcyI6ImdpdGh1YiIsImp0aSI6Ijc3NGYxNDQwLTdhZmMtNGFlMi1iNmM2LTBlNDJjOTUwYTk1MSIsInZlciI6M30.KAbvmmvdw2HelO4EO715WtSpCSWSxs21SUe4PgHeBVC0Sbn2Yj6FedXVeIZU8GOpb032-x6yeMT7Z2PXBrfc_g@github.com/akghanekar000/mobile-invoice-challan.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/akghanekar000/mobile-invoice-challan/issues"
+  },
+  "homepage": "https://github.com/akghanekar000/mobile-invoice-challan#readme",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.134.0",
+    "@netlify/database": "^2.0.1",
+    "@netlify/functions": "^6.0.2",
+    "drizzle-orm": "^1.0.0-beta.22"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^1.0.0-beta.22",
+    "typescript": "^7.0.2"
+  }
+}
